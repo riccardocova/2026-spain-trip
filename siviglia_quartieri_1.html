@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Siviglia — Quartieri Semana Santa 2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green: #2E7D52; --green-bg: #E8F5EE;
+  --orange: #C8401A; --orange-bg: #FBE9E4;
+  --gray: #6B6560; --gray-bg: #F2EFE9;
+  --border: #E0D8CC; --panel: #FDFAF6; --ink: #1C1A14; --ink2: #56504A; --ink3: #9A9080;
+}
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #F4F0EC; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+header h1 { font-size: 16px; font-weight: 600; color: var(--ink); }
+header p { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* LEGEND PANEL */
+.legend-panel {
+  width: 290px; flex-shrink: 0;
+  background: var(--panel); border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.leg-section-title {
+  font-size: 9px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink3); margin-bottom: 2px;
+}
+.leg-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 11px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent; transition: all .15s;
+}
+.leg-item:hover { border-color: var(--border); }
+.leg-item.active { border-color: currentColor; }
+.leg-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 2px; border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.leg-title { font-size: 12px; font-weight: 500; margin-bottom: 2px; }
+.leg-desc { font-size: 11px; color: var(--ink2); line-height: 1.45; }
+.leg-badge {
+  display: inline-block; font-size: 10px; font-weight: 500;
+  padding: 1px 7px; border-radius: 10px; margin-bottom: 4px;
+}
+
+.divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+.tip-box {
+  background: #FDF6E3; border: 1px solid #E8D89A; border-radius: 8px;
+  padding: 10px 12px; font-size: 11px; color: #6B5A1A; line-height: 1.5;
+}
+.tip-box strong { font-weight: 600; display: block; margin-bottom: 3px; }
+
+#map { flex: 1; }
+
+/* Popup */
+.popup-inner { font-family: -apple-system, 'Segoe UI', sans-serif; padding: 10px 13px; min-width: 180px; max-width: 230px; }
+.popup-inner h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.popup-inner .badge { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }
+.popup-inner p { font-size: 11px; color: #56504A; line-height: 1.5; }
+.leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,.14) !important; border: 1px solid #E0D8CC !important; padding: 0 !important; }
+.leaflet-popup-content { margin: 0 !important; }
+.leaflet-popup-tip-container { display: none; }
+.leaflet-popup-close-button { top: 8px !important; right: 8px !important; font-size: 18px !important; color: #9A9080 !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Siviglia — Quartieri durante la Semana Santa</h1>
+    <p>29 marzo – 5 aprile 2026 &nbsp;·&nbsp; Guida ai quartieri dove dormire (e dove evitare)</p>
+  </div>
+</header>
+
+<div class="main">
+  <div class="legend-panel">
+
+    <div class="leg-section-title">Consigliato — dove dormire</div>
+
+    <div class="leg-item" style="background:var(--green-bg)" onclick="flyTo([37.381, -6.009], 'triana')">
+      <div class="leg-dot" style="background:#2E7D52"></div>
+      <div>
+        <div class="leg-badge" style="background:#C8EDD8;color:#1A5C38">⭐ Prima scelta</div>
+        <div class="leg-title" style="color:#1A5C38">Triana</div>
+        <div class="leg-desc">Dall'altro lato del Guadalquivir. Autentico, vivace, separato dal caos dal fiume. 10 min a piedi dal centro. Le processioni ci passano ma è più respirabile.</div>
+      </div>
+    </div>
+
+    <div class="leg-item" style="background:#F2EFE9" onclick="flyTo([37.387, -5.998], 'arenal')">
+      <div class="leg-dot" style="background:#7A6A5A"></div>
+      <div>
+        <div class="leg-badge" style="background:#E8E4DC;color:#5A4A3A">✓ Alternativa</div>
+        <div class="leg-title" style="color:#3A3028">El Arenal</div>
+        <div class="leg-desc">Tra la Cattedrale e il fiume. Più respirabile di Santa Cruz. Vicino alla Torre del Oro. Buon compromesso tra posizione e vivibilità.</div>
+      </div>
+    </div>
+
+    <div class="leg-item" style="background:#F2EFE9" onclick="flyTo([37.399, -5.993], 'alameda')">
+      <div class="leg-dot" style="background:#7A6A5A"></div>
+      <div>
+        <div class="leg-badge" style="background:#E8E4DC;color:#5A4A3A">✓ Alternativa</div>
+        <div class="leg-title" style="color:#3A3028">Alameda de Hércules</div>
+        <div class="leg-desc">Quartiere giovane e alternativo a nord del centro. Fuori dai percorsi principali. Prezzi migliori, atmosfera locale. Ottima per gli ultimi giorni senza auto.</div>
+      </div>
+    </div>
+
+    <div class="leg-item" style="background:#F2EFE9" onclick="flyTo([37.408, -5.979], 'macarena')">
+      <div class="leg-dot" style="background:#7A6A5A"></div>
+      <div>
+        <div class="leg-badge" style="background:#E8E4DC;color:#5A4A3A">✓ Alternativa</div>
+        <div class="leg-title" style="color:#3A3028">La Macarena</div>
+        <div class="leg-desc">Quartiere popolare e autentico. Le processioni ci partono (Virgen de la Macarena) ma non ci si concentrano. Più tranquillo, prezzi accessibili.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="leg-section-title">Da evitare come base</div>
+
+    <div class="leg-item" style="background:var(--orange-bg)" onclick="flyTo([37.386, -5.990], 'santacruz')">
+      <div class="leg-dot" style="background:#C8401A"></div>
+      <div>
+        <div class="leg-badge" style="background:#FAD5C8;color:#8B2A0E">⚠ Evitare</div>
+        <div class="leg-title" style="color:#8B2A0E">Barrio Santa Cruz</div>
+        <div class="leg-desc">Bellissimo ma intasato. Strade strette bloccate dalle processioni. Caro durante la Semana Santa. Difficile muoversi anche solo per uscire di casa.</div>
+      </div>
+    </div>
+
+    <div class="leg-item" style="background:var(--orange-bg)" onclick="flyTo([37.389, -5.994], 'carrera')">
+      <div class="leg-dot" style="background:#A03010"></div>
+      <div>
+        <div class="leg-badge" style="background:#FAD5C8;color:#8B2A0E">⚠ Iper-affollato</div>
+        <div class="leg-title" style="color:#8B2A0E">Carrera Oficial</div>
+        <div class="leg-desc">Calle Sierpes → Plaza San Francisco → Cattedrale. Tutte le 60+ confraternite passano qui. Il punto più caotico della città per tutta la settimana.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="tip-box">
+      <strong>💡 Consiglio pratico</strong>
+      Prenotare subito se non l'hai ancora fatto — a fine marzo la disponibilità nei quartieri centrali è quasi esaurita. Cerca su Airbnb o Booking filtrando per Triana o Macarena.
+    </div>
+
+    <div class="leg-section-title" style="margin-top:4px">Punti di riferimento</div>
+    <div style="font-size:11px;color:var(--ink2);line-height:1.6;padding:0 2px">
+      🕍 Cattedrale — meta finale di tutte le processioni<br>
+      🌉 Ponte di Triana — punto scenografico per vedere le processioni<br>
+      🏛 Real Alcázar — da visitare, nei pressi di Santa Cruz
+    </div>
+
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script>
+const map = L.map('map', { center: [37.392, -5.993], zoom: 14, zoomControl: true });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+const places = [
+  {
+    id: 'triana',
+    name: 'Triana',
+    lat: 37.381, lng: -6.009,
+    color: '#2E7D52', size: 20,
+    badge: '⭐ Prima scelta', badgeBg: '#C8EDD8', badgeFg: '#1A5C38',
+    desc: 'Zona consigliata durante la Semana Santa. Autentica, vivace, separata dal centro dal Guadalquivir. 10 minuti a piedi dal cuore della città. Le processioni ci passano (Esperanza de Triana sfila nella Madrugá) ma è più respirabile.'
+  },
+  {
+    id: 'arenal',
+    name: 'El Arenal',
+    lat: 37.387, lng: -5.998,
+    color: '#7A6A5A', size: 16,
+    badge: '✓ Alternativa valida', badgeBg: '#E8E4DC', badgeFg: '#5A4A3A',
+    desc: 'Quartiere tra la Cattedrale e il fiume. Più vivibile di Santa Cruz durante le processioni. Vicino alla Torre del Oro. Buon punto di equilibrio.'
+  },
+  {
+    id: 'alameda',
+    name: 'Alameda de Hércules',
+    lat: 37.399, lng: -5.993,
+    color: '#7A6A5A', size: 16,
+    badge: '✓ Alternativa tranquilla', badgeBg: '#E8E4DC', badgeFg: '#5A4A3A',
+    desc: 'Quartiere giovane e alternativo a nord del centro. Fuori dai percorsi principali delle processioni. Prezzi più accessibili, vita locale autentica.'
+  },
+  {
+    id: 'macarena',
+    name: 'La Macarena',
+    lat: 37.408, lng: -5.979,
+    color: '#7A6A5A', size: 16,
+    badge: '✓ Alternativa popolare', badgeBg: '#E8E4DC', badgeFg: '#5A4A3A',
+    desc: 'Quartiere popolare a nord. Le processioni partono da qui (Virgen de la Macarena) ma non si concentrano. Più autentico e tranquillo. Prezzi migliori.'
+  },
+  {
+    id: 'santacruz',
+    name: 'Barrio Santa Cruz',
+    lat: 37.3862, lng: -5.9899,
+    color: '#C8401A', size: 18,
+    badge: '⚠ Evitare come base', badgeBg: '#FAD5C8', badgeFg: '#8B2A0E',
+    desc: 'Bellissimo da visitare, ma caotico come base durante la Semana Santa. Strade strette intasate, prezzi alti, difficile muoversi. Meglio visitarlo di giorno.'
+  },
+  {
+    id: 'carrera',
+    name: 'Carrera Oficial',
+    lat: 37.389, lng: -5.994,
+    color: '#8B2A0E', size: 14,
+    badge: '⚠ Zona iper-affollata', badgeBg: '#FAD5C8', badgeFg: '#8B2A0E',
+    desc: 'Il percorso ufficiale: Calle Sierpes → Plaza San Francisco → Cattedrale. Tutte le confraternite passano qui. Il punto più caotico per tutta la settimana — ottimo per vedere le processioni, pessimo per dormirci vicino.'
+  },
+  {
+    id: 'cattedrale',
+    name: 'Cattedrale di Siviglia',
+    lat: 37.3858, lng: -5.9931,
+    color: '#444', size: 14,
+    badge: '📍 Punto di riferimento', badgeBg: '#E8E4DC', badgeFg: '#444',
+    desc: 'Tutte le 60+ confraternite devono passare da qui. Meta finale di ogni processione. Zona iper-affollata durante la Semana Santa, ma imperdibile da visitare.'
+  },
+];
+
+const markers = {};
+
+places.forEach(p => {
+  const iconHtml = `
+    <div style="
+      width:${p.size}px;height:${p.size}px;border-radius:50%;
+      background:${p.color};border:2.5px solid white;
+      box-shadow:0 2px 8px rgba(0,0,0,.28);
+    "></div>`;
+  const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [p.size, p.size], iconAnchor: [p.size/2, p.size/2] });
+  const m = L.marker([p.lat, p.lng], { icon }).addTo(map);
+
+  m.bindPopup(`
+    <div class="popup-inner">
+      <div class="badge" style="background:${p.badgeBg};color:${p.badgeFg}">${p.badge}</div>
+      <h3 style="color:${p.color}">${p.name}</h3>
+      <p>${p.desc}</p>
+    </div>
+  `, { maxWidth: 240, closeButton: true });
+
+  markers[p.id] = m;
+});
+
+// Guadalquivir river label area (visual reference)
+L.polyline([
+  [37.378, -6.004], [37.388, -6.002], [37.396, -5.999]
+], { color: '#6BA3BE', weight: 6, opacity: 0.4 }).addTo(map);
+L.marker([37.387, -6.001], {
+  icon: L.divIcon({
+    html: '<div style="font-size:10px;color:#3A6A80;font-weight:500;white-space:nowrap;transform:rotate(-12deg)">Guadalquivir</div>',
+    className: '', iconAnchor: [40, 8]
+  }), interactive: false
+}).addTo(map);
+
+// Ponte di Triana marker
+L.marker([37.3855, -6.003], {
+  icon: L.divIcon({
+    html: '<div style="font-size:10px;color:#5A4A3A;font-weight:500;white-space:nowrap;background:rgba(255,255,255,.8);padding:1px 5px;border-radius:4px">🌉 Ponte di Triana</div>',
+    className: '', iconAnchor: [50, 8]
+  }), interactive: false
+}).addTo(map);
+
+function flyTo(coord, id) {
+  map.flyTo(coord, 15, { duration: 0.8 });
+  if (markers[id]) setTimeout(() => markers[id].openPopup(), 850);
+}
+
+// Open Triana popup on load
+setTimeout(() => { map.flyTo([37.391, -5.997], 14); }, 300);
+</script>
+</body>
+</html>
