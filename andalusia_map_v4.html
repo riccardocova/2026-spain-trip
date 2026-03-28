@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Andalusia · Versione Mare · Malaga→Siviglia 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #EEF5F2;
+  --panel: #F7FCFA;
+  --ink: #1A1E1C;
+  --ink2: #4A5C55;
+  --ink3: #8FA89F;
+  --accent: #2E8B5C;
+  --accent2: #1A6CB8;
+  --siv: #C8401A;
+  --border: #D4E6DF;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 22px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.header-left h1 { font-family: 'DM Serif Display', serif; font-size: 18px; letter-spacing: -0.2px; color: var(--ink); }
+.header-left p { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+.legend { display: flex; gap: 14px; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink2); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+.main { display: flex; flex: 1; overflow: hidden; }
+
+.toggle-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 20px;
+  cursor: pointer; font-size: 12px;
+  font-family: 'DM Sans', sans-serif; color: var(--ink2);
+  transition: background 0.12s; flex-shrink: 0; white-space: nowrap;
+}
+.toggle-btn:hover { background: #E4F0EC; }
+.toggle-btn.active { background: #E4F0EC; border-color: #B0CFCA; }
+.toggle-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.sidebar-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 10; }
+.sidebar-overlay.visible { display: block; }
+
+.sidebar {
+  width: 310px; flex-shrink: 0;
+  background: var(--panel); border-right: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column;
+}
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+@media (min-width: 601px) {
+  .sidebar { transition: width 0.25s ease, opacity 0.2s ease; }
+  .sidebar.collapsed { width: 0; opacity: 0; overflow: hidden; border-right: none; pointer-events: none; }
+}
+@media (max-width: 600px) {
+  .main { position: relative; }
+  .sidebar {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: 0; opacity: 0; overflow: hidden; border-right: none;
+    pointer-events: none; z-index: 20;
+    transition: width 0.25s ease, opacity 0.2s ease;
+  }
+  .sidebar.open { width: min(310px, 88vw); opacity: 1; overflow-y: auto; border-right: 1px solid var(--border); pointer-events: auto; }
+  .legend { display: none; }
+  header { padding: 10px 14px; }
+  .header-left h1 { font-size: 15px; }
+  .header-left p { font-size: 10px; }
+  .summary-item { padding: 5px 0; }
+  .summary-val { font-size: 12px; }
+  .summary-lbl { font-size: 8px; }
+}
+
+.sidebar-header {
+  padding: 10px 16px 8px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink3); background: var(--panel);
+  position: sticky; top: 0; z-index: 5;
+}
+
+.day-card {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.12s; position: relative;
+}
+.day-card:hover { background: #EAF3EE; }
+.day-card.active { background: #F0F9F5; }
+.day-card.active::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 0 2px 2px 0;
+}
+
+.day-header { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px 9px; }
+.day-badge {
+  min-width: 26px; height: 26px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 500; flex-shrink: 0; margin-top: 1px; color: white;
+}
+.day-title-block { flex: 1; min-width: 0; }
+.day-title { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-date { font-size: 10px; color: var(--ink3); margin-top: 1px; }
+.day-sleep { font-size: 10px; color: var(--ink2); margin-top: 3px; }
+
+.tags-row-header { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; margin-left: -7px; }
+.tag { font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+.tag-city { background: #F8EBD8; color: #8B4A14; }
+.tag-wind { background: #DCEAF8; color: #1A5A9A; }
+.tag-relax { background: #D0EDE0; color: #1A6B44; }
+
+.transfer-inline {
+  display: flex; align-items: center; gap: 5px; margin-top: 4px;
+  background: #DFF0E8; border-radius: 5px; padding: 4px 8px;
+  font-size: 10px; color: var(--ink2);
+}
+.ti-route { font-weight: 500; color: var(--ink); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ti-pill { background: white; border-radius: 8px; padding: 1px 6px; font-size: 10px; color: var(--ink2); white-space: nowrap; flex-shrink: 0; }
+
+.day-body { overflow: hidden; max-height: 0; transition: max-height 0.28s ease; background: #EEF7F2; }
+.day-body.open { max-height: 380px; border-top: 1px solid var(--border); }
+.day-body-inner { padding: 10px 14px 12px; }
+
+.transfer-strip {
+  display: flex; align-items: center; gap: 8px;
+  background: #DFF0E8; border-radius: 6px; padding: 6px 10px;
+  margin-bottom: 9px; font-size: 11px; color: var(--ink2);
+}
+.transfer-strip strong { color: var(--ink); font-weight: 500; }
+
+.activities-label { font-size: 9px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 5px; }
+.activity-item { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 4px; font-size: 11px; color: var(--ink2); line-height: 1.4; }
+.activity-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; background: var(--ink3); }
+.activity-item.highlight .activity-dot { background: var(--siv); }
+.activity-item.wind-item .activity-dot { background: var(--accent2); }
+.activity-item.relax-item .activity-dot { background: var(--accent); }
+
+#map { flex: 1; z-index: 1; }
+
+.marker-wrap { display: flex; flex-direction: column; align-items: center; }
+.marker-circle {
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif; color: white;
+  border: 2.5px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.marker-stem { width: 2px; height: 8px; opacity: 0.7; }
+
+.map-popup { font-family: 'DM Sans', sans-serif; padding: 10px 14px; min-width: 155px; }
+.map-popup strong { font-size: 13px; font-weight: 500; display: block; margin-bottom: 2px; }
+.map-popup span { font-size: 11px; color: var(--ink3); display: block; }
+
+.leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.13) !important; border: 1px solid var(--border) !important; padding: 0 !important; background: var(--panel) !important; }
+.leaflet-popup-content { margin: 0 !important; }
+.leaflet-popup-tip { background: var(--panel) !important; }
+.leaflet-popup-close-button { display: none !important; }
+
+.summary-bar { display: flex; border-top: 1px solid var(--border); background: var(--panel); flex-shrink: 0; }
+.summary-item { flex: 1; text-align: center; padding: 7px 0; border-right: 1px solid var(--border); }
+.summary-item:last-child { border-right: none; }
+.summary-val { font-size: 14px; font-weight: 500; font-family: 'DM Serif Display', serif; color: var(--ink); }
+.summary-lbl { font-size: 9px; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button class="toggle-btn active" id="sidebar-toggle" onclick="toggleSidebar()" title="Mostra/nascondi itinerario">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <rect x="1" y="1" width="14" height="14" rx="2"/>
+        <line x1="5.5" y1="1" x2="5.5" y2="15"/>
+      </svg>
+      <span id="toggle-label">Itinerario</span>
+    </button>
+    <div class="header-left">
+      <h1>Andalusia Mare · Malaga → Siviglia</h1>
+      <p>5 – 12 aprile 2026 &nbsp;·&nbsp; 7 notti &nbsp;·&nbsp; focus relax &amp; windsurf</p>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2E8B5C"></div> Malaga / Costa</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1A6CB8"></div> Tarifa · windsurf</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C8401A"></div> Siviglia</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8B4A14"></div> Gita</div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">Programma giorno per giorno</div>
+    <div id="days-list"></div>
+  </div>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <div id="map"></div>
+</div>
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-val">8</div><div class="summary-lbl">Giorni</div></div>
+  <div class="summary-item"><div class="summary-val">~580 km</div><div class="summary-lbl">Guida totale</div></div>
+  <div class="summary-item"><div class="summary-val">2–3</div><div class="summary-lbl">Sessioni windsurf</div></div>
+  <div class="summary-item"><div class="summary-val">AGP→SVQ</div><div class="summary-lbl">One-way</div></div>
+  <div class="summary-item"><div class="summary-val">7</div><div class="summary-lbl">Notti</div></div>
+</div>
+
+<script>
+const days = [
+  {
+    id:1, label:"Dom 5 apr", title:"Arrivo Malaga — Malagueta",
+    sleep:"Malaga", sleepCoord:[36.7213,-4.4214],
+    color:"#2E8B5C", wind:false,
+    transfer:null,
+    activities:[
+      {text:"Ritiro auto all'aeroporto AGP", type:"normal"},
+      {text:"Alcazaba + Teatro Romano (2h)", type:"highlight"},
+      {text:"Spiaggia Malagueta — prima nuotata", type:"relax"},
+      {text:"Cena sul lungomare: boquerones y espetos de sardinas", type:"highlight"},
+    ],
+    tags:["🌊 mare","🏛 città"]
+  },
+  {
+    id:2, label:"Lun 6 apr", title:"Malaga → Frigiliana → Nerja",
+    sleep:"Nerja", sleepCoord:[36.7564,-3.8727],
+    color:"#2E8B5C", wind:false,
+    transfer:{from:"Malaga",to:"Nerja",km:55,time:"50 min",road:"A-7 costa est"},
+    activities:[
+      {text:"Sosta a Frigiliana: il più bel pueblo bianco dell'Andalusia (~45 min)", type:"highlight"},
+      {text:"Balcón de Europa — vista mozzafiato sul Mediterraneo", type:"highlight"},
+      {text:"Cuevas de Nerja — grotte preistoriche spettacolari", type:"highlight"},
+      {text:"Spiaggia Burriana: caletta riparata, ottima per snorkeling", type:"relax"},
+    ],
+    tags:["🌊 mare","🏛 città"]
+  },
+  {
+    id:3, label:"Mar 7 apr", title:"Nerja → Bolonia → Tarifa",
+    sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+    color:"#1A6CB8", wind:true,
+    transfer:{from:"Nerja",to:"Tarifa",km:230,time:"2h 45min",road:"A-7 · tappa Bolonia"},
+    activities:[
+      {text:"Transfer panoramico lungo la Costa del Sol", type:"normal"},
+      {text:"Sosta a Bolonia: dune bianche + rovine romane Baelo Claudia", type:"highlight"},
+      {text:"Arrivo Tarifa pomeriggio: casco histórico medievale", type:"normal"},
+      {text:"Sopralluogo spot windsurf: Valdevaqueros e Los Lances", type:"wind"},
+    ],
+    tags:["🌊 mare","💨 windsurf"]
+  },
+  {
+    id:4, label:"Mer 8 apr", title:"Tarifa — windsurf + mare",
+    sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+    color:"#1A6CB8", wind:true,
+    transfer:null,
+    activities:[
+      {text:"Whale watching mattina presto (prenotare la sera prima)", type:"highlight"},
+      {text:"Noleggio attrezzatura: Tarifa Spin Out o ION Club", type:"wind"},
+      {text:"Sessione windsurf: Valdevaqueros — Ponente o Levante", type:"wind"},
+      {text:"Tramonto sullo Stretto: luci del Marocco di fronte", type:"relax"},
+    ],
+    tags:["💨 windsurf","🌊 mare"]
+  },
+  {
+    id:5, label:"Gio 9 apr", title:"Tarifa — Gibilterra + windsurf day 2",
+    sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+    color:"#1A6CB8", wind:true,
+    transfer:{from:"Tarifa",to:"Gibilterra (gita A/R)",km:30,time:"30 min",road:"N-340 → La Línea"},
+    activities:[
+      {text:"Mattina: seconda sessione windsurf se c'è vento", type:"wind"},
+      {text:"Pomeriggio: Gibilterra — parcheggio a La Línea, visita a piedi", type:"highlight"},
+      {text:"Funivia Rock of Gibraltar + macachi barbareschi", type:"highlight"},
+      {text:"Vista su due continenti: Europa e Africa a 14 km", type:"highlight"},
+    ],
+    tags:["💨 windsurf","🏛 città"]
+  },
+  {
+    id:6, label:"Ven 10 apr", title:"Tarifa — relax e spiagge",
+    sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+    color:"#1A6CB8", wind:true,
+    transfer:null,
+    activities:[
+      {text:"Giornata libera — nessun programma fisso", type:"relax"},
+      {text:"Spiaggia Los Lances: camminata sulle dune", type:"relax"},
+      {text:"Terza sessione windsurf opzionale", type:"wind"},
+      {text:"Cena nel centro storico: El Lola o La Oca da Sergio", type:"highlight"},
+    ],
+    tags:["🌊 mare","💨 windsurf"]
+  },
+  {
+    id:7, label:"Sab 11 apr", title:"Tarifa → Sanlúcar → Siviglia",
+    sleep:"Siviglia", sleepCoord:[37.3891,-5.9845],
+    color:"#C8401A", wind:false,
+    transfer:{from:"Tarifa",to:"Siviglia",km:200,time:"2h 15min",road:"A-48 + A-4 · tappa Sanlúcar"},
+    activities:[
+      {text:"Tappa a Sanlúcar: manzanilla e gambas sul lungomare atlantico (~1h)", type:"highlight"},
+      {text:"Arrivo Siviglia pomeriggio — Barrio de Triana al tramonto", type:"highlight"},
+      {text:"Sera: tablao flamenco (Casa de la Memoria) — prenotare", type:"highlight"},
+    ],
+    tags:["🏛 città"]
+  },
+  {
+    id:8, label:"Dom 12 apr", title:"Siviglia — Alcázar e rientro",
+    sleep:null, sleepCoord:null,
+    color:"#9C9480", wind:false,
+    transfer:{from:"Siviglia centro",to:"Aeroporto SVQ",km:12,time:"20 min",road:"SE-30"},
+    activities:[
+      {text:"Real Alcázar mattina — giardini in fiore (prenotare online)", type:"highlight"},
+      {text:"Catedral de Siviglia + Giralda se il tempo lo permette", type:"normal"},
+      {text:"Pranzo finale: salmorejo e tortillita de camarones", type:"highlight"},
+      {text:"Riconsegna auto e volo di rientro", type:"normal"},
+    ],
+    tags:["🏛 città"]
+  }
+];
+
+const map = L.map('map', { center:[36.8,-4.8], zoom:8, zoomControl:true });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:19
+}).addTo(map);
+
+const stopCoords = {
+  "Malaga":   [36.7213,-4.4214],
+  "Nerja":    [36.7564,-3.8727],
+  "Tarifa":   [36.0143,-5.6044],
+  "Gibilterra":[36.1441,-5.3417],
+  "Siviglia": [37.3891,-5.9845],
+};
+
+const stopColors = {
+  "Malaga":"#2E8B5C","Nerja":"#2E8B5C","Tarifa":"#1A6CB8",
+  "Gibilterra":"#8B4A14","Siviglia":"#C8401A",
+};
+
+const stopNightCount = { "Malaga":1,"Nerja":1,"Tarifa":4,"Gibilterra":0,"Siviglia":1 };
+const stopNightsLabel = {
+  "Malaga":"1 notte","Nerja":"1 notte","Tarifa":"4 notti · windsurf",
+  "Gibilterra":"gita di giornata","Siviglia":"1 notte + partenza",
+};
+
+const markers = {};
+Object.entries(stopCoords).forEach(([name, coord]) => {
+  const color = stopColors[name];
+  const isGib = name === "Gibilterra";
+  const size = isGib ? 26 : 36;
+  const nights = stopNightCount[name];
+  const label = isGib
+    ? '<span style="font-size:9px">gita</span>'
+    : `<span style="font-size:14px;font-weight:700;line-height:1">${nights}</span><span style="font-size:8px;margin-left:1px;opacity:.85">N</span>`;
+
+  const iconHtml = `
+    <div class="marker-wrap">
+      <div class="marker-circle" style="background:${color};width:${size}px;height:${size}px;gap:0">
+        ${label}
+      </div>
+      <div class="marker-stem" style="background:${color}"></div>
+    </div>`;
+
+  const icon = L.divIcon({ html:iconHtml, className:'', iconSize:[size,size+10], iconAnchor:[size/2,size+10], popupAnchor:[0,-(size+10)] });
+  const m = L.marker(coord, {icon}).addTo(map);
+  m.bindPopup(`
+    <div class="map-popup">
+      <strong>${name}</strong>
+      <span>${stopNightsLabel[name]}</span>
+    </div>`, {closeButton:false});
+
+  m.on('click', () => {
+    const match = days.find(d => d.sleep === name);
+    if (match) selectDay(match.id);
+  });
+  markers[name] = m;
+});
+
+const routeSegments = [
+  {key:"Malaga-Nerja",    from:"Malaga",  to:"Nerja",      dayId:2, gib:false},
+  {key:"Nerja-Tarifa",    from:"Nerja",   to:"Tarifa",     dayId:3, gib:false},
+  {key:"Tarifa-Gib",      from:"Tarifa",  to:"Gibilterra", dayId:5, gib:true},
+  {key:"Tarifa-Siviglia", from:"Tarifa",  to:"Siviglia",   dayId:7, gib:false},
+];
+
+const routeLayers = {};
+
+function baseStyle(isGib) {
+  return { color: isGib ? '#A07858' : (isGib ? '#2E8B5C' : '#2E8B5C'), weight: isGib ? 2 : 3, opacity: isGib ? 0.45 : 0.5, dashArray: isGib ? '5 5' : null, lineJoin:'round', lineCap:'round' };
+}
+function activeStyle(isGib) {
+  return { color: isGib ? '#8B4A14' : '#1A6CB8', weight: isGib ? 3 : 5, opacity: 0.9, dashArray: isGib ? '6 4' : null, lineJoin:'round', lineCap:'round' };
+}
+
+async function fetchRoute(fromCoord, toCoord) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromCoord[1]},${fromCoord[0]};${toCoord[1]},${toCoord[0]}?overview=full&geometries=geojson`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.routes && data.routes[0]) return data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+  } catch(e) {}
+  return [fromCoord, toCoord];
+}
+
+async function drawRoutes() {
+  for (const seg of routeSegments) {
+    const from = stopCoords[seg.from], to = stopCoords[seg.to];
+    if (!from || !to) continue;
+    const coords = await fetchRoute(from, to);
+    const line = L.polyline(coords, baseStyle(seg.gib)).addTo(map);
+    routeLayers[seg.key] = {line, seg};
+  }
+}
+drawRoutes();
+
+function highlightSegmentForDay(dayId) {
+  const match = routeSegments.find(s => s.dayId === dayId);
+  Object.values(routeLayers).forEach(({line, seg}) => {
+    if (match && seg.key === match.key) { line.setStyle(activeStyle(seg.gib)); line.bringToFront(); }
+    else line.setStyle(baseStyle(seg.gib));
+  });
+}
+function resetAllSegments() {
+  Object.values(routeLayers).forEach(({line, seg}) => line.setStyle(baseStyle(seg.gib)));
+}
+
+let activeDay = null;
+
+function buildSidebar() {
+  const container = document.getElementById('days-list');
+  days.forEach(day => {
+    const card = document.createElement('div');
+    card.className = `day-card${day.wind ? ' wind-day' : ''}`;
+    card.id = `day-card-${day.id}`;
+
+    const tagsHtml = day.tags
+      .filter(t => !t.includes('transfer') && !t.includes('gita'))
+      .map(t => {
+        let cls = 'tag-city';
+        if (t.includes('windsurf')) cls = 'tag-wind';
+        else if (t.includes('mare')) cls = 'tag-relax';
+        return `<span class="tag ${cls}">${t}</span>`;
+      }).join('');
+
+    const transferHtml = day.transfer ? `
+      <div class="transfer-inline">
+        <span>🚗</span>
+        <span class="ti-route">${day.transfer.from} → ${day.transfer.to}</span>
+        <span class="ti-pill">${day.transfer.km} km · ${day.transfer.time}</span>
+      </div>` : '';
+
+    const transferBodyHtml = day.transfer ? `
+      <div class="transfer-strip">
+        <span>🛣</span>
+        <span>Strada: <strong>${day.transfer.road}</strong></span>
+      </div>` : '';
+
+    const sleepHtml = day.sleep
+      ? `<div class="day-sleep">🛏&nbsp; ${day.sleep}</div>`
+      : `<div class="day-sleep" style="color:#9C9480">✈️&nbsp; Fine viaggio · riconsegna auto</div>`;
+
+    const actsHtml = day.activities.map(a => {
+      const cls = a.type === 'highlight' ? 'highlight' : a.type === 'wind' ? 'wind-item' : a.type === 'relax' ? 'relax-item' : '';
+      return `<div class="activity-item ${cls}"><div class="activity-dot"></div><span>${a.text}</span></div>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="day-header">
+        <div class="day-badge" style="background:${day.color}">${day.id}</div>
+        <div class="day-title-block">
+          <div class="day-title">${day.title}</div>
+          <div class="day-date">${day.label}</div>
+          ${tagsHtml ? `<div class="tags-row-header">${tagsHtml}</div>` : ''}
+          ${transferHtml}
+          ${sleepHtml}
+        </div>
+      </div>
+      <div class="day-body" id="day-body-${day.id}">
+        <div class="day-body-inner">
+          ${transferBodyHtml}
+          <div class="activities-label">Attività del giorno</div>
+          ${actsHtml}
+        </div>
+      </div>`;
+
+    card.style.setProperty('--card-color', day.color);
+    card.addEventListener('click', () => selectDay(day.id));
+    container.appendChild(card);
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `#day-card-${day.id}.active::before { background: ${day.color}; }`;
+    document.head.appendChild(styleEl);
+  });
+}
+
+function selectDay(id) {
+  const day = days.find(d => d.id === id);
+  if (!day) return;
+  if (activeDay && activeDay !== id) {
+    document.getElementById(`day-card-${activeDay}`)?.classList.remove('active');
+    document.getElementById(`day-body-${activeDay}`)?.classList.remove('open');
+  }
+  if (activeDay === id) {
+    document.getElementById(`day-card-${id}`)?.classList.remove('active');
+    document.getElementById(`day-body-${id}`)?.classList.remove('open');
+    resetAllSegments(); activeDay = null; return;
+  }
+  document.getElementById(`day-card-${id}`)?.classList.add('active');
+  document.getElementById(`day-body-${id}`)?.classList.add('open');
+  document.getElementById(`day-card-${id}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if (day.transfer) highlightSegmentForDay(id); else resetAllSegments();
+  if (day.sleepCoord) {
+    map.flyTo(day.sleepCoord, 10, {duration:0.9, easeLinearity:0.3});
+    const stopName = Object.keys(stopCoords).find(k => {
+      const c = stopCoords[k];
+      return Math.abs(c[0]-day.sleepCoord[0]) < 0.01 && Math.abs(c[1]-day.sleepCoord[1]) < 0.01;
+    });
+    if (stopName && markers[stopName]) markers[stopName].openPopup();
+    if (id === 5 && markers["Gibilterra"]) setTimeout(()=>markers["Gibilterra"].openPopup(), 900);
+  }
+  activeDay = id;
+}
+
+function isMobile() { return window.innerWidth <= 600; }
+function updateToggleBtn(v) {
+  document.getElementById('sidebar-toggle')?.classList.toggle('active', v);
+  const l = document.getElementById('toggle-label');
+  if (l) l.textContent = v ? 'Chiudi' : 'Itinerario';
+}
+function closeSidebar() {
+  const s = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay');
+  if (isMobile()) { s.classList.remove('open'); o.classList.remove('visible'); }
+  else s.classList.add('collapsed');
+  updateToggleBtn(false);
+  setTimeout(()=>map.invalidateSize(),280);
+}
+function toggleSidebar() {
+  const s = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay');
+  if (isMobile()) {
+    const open = s.classList.contains('open');
+    s.classList.toggle('open',!open); o.classList.toggle('visible',!open);
+    updateToggleBtn(!open);
+    if (!open) setTimeout(()=>map.invalidateSize(),280);
+  } else {
+    const col = s.classList.contains('collapsed');
+    s.classList.toggle('collapsed',!col);
+    updateToggleBtn(col);
+    setTimeout(()=>map.invalidateSize(),280);
+  }
+}
+
+buildSidebar();
+selectDay(1);
+if (!isMobile()) updateToggleBtn(true); else updateToggleBtn(false);
+</script>
+</body>
+</html>

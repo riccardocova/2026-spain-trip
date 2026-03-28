@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Andalusia · Costa Atlantica + Tangeri · SVQ loop 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F0EC;--panel:#FDFAF6;--ink:#1C1A14;--ink2:#56504A;--ink3:#9A9080;
+  --border:#E0D8CC;--accent:#C8401A;--wind:#1A6CB8;--coast:#9B6A1A;--tarifa:#1A6CB8;--siv:#C8401A;--morocco:#7B35A8;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:11px 22px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
+.header-left h1{font-family:'DM Serif Display',serif;font-size:18px;letter-spacing:-.2px}
+.header-left p{font-size:11px;color:var(--ink3);margin-top:2px}
+.legend{display:flex;gap:12px;align-items:center}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink2)}
+.legend-dot{width:9px;height:9px;border-radius:50%}
+.legend-line{width:20px;height:3px;border-radius:2px;opacity:.5}
+
+.main{display:flex;flex:1;overflow:hidden}
+
+.toggle-btn{display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--panel);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ink2);transition:background .12s;flex-shrink:0;white-space:nowrap}
+.toggle-btn:hover{background:#EDE8E0}
+.toggle-btn.active{background:#EDE8E0;border-color:#C8B8A0}
+.toggle-btn svg{width:14px;height:14px;flex-shrink:0}
+
+.sidebar-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:10}
+.sidebar-overlay.visible{display:block}
+
+.sidebar{width:310px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+@media(min-width:601px){
+  .sidebar{transition:width .25s ease,opacity .2s ease}
+  .sidebar.collapsed{width:0;opacity:0;overflow:hidden;border-right:none;pointer-events:none}
+}
+@media(max-width:600px){
+  .main{position:relative}
+  .sidebar{position:absolute;top:0;left:0;bottom:0;width:0;opacity:0;overflow:hidden;border-right:none;pointer-events:none;z-index:20;transition:width .25s ease,opacity .2s ease}
+  .sidebar.open{width:min(310px,88vw);opacity:1;overflow-y:auto;border-right:1px solid var(--border);pointer-events:auto}
+  .legend{display:none}
+  header{padding:10px 14px}
+  .header-left h1{font-size:15px}
+  .header-left p{font-size:10px}
+  .summary-item{padding:5px 0}
+  .summary-val{font-size:12px}
+  .summary-lbl{font-size:8px}
+}
+
+.sidebar-top{padding:10px 16px 8px;border-bottom:1px solid var(--border);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);background:var(--panel);position:sticky;top:0;z-index:5}
+
+.phase-sep{font-size:9px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);padding:8px 14px 4px;border-top:.5px solid var(--border);margin-top:2px}
+.phase-sep:first-of-type{border-top:none;margin-top:0;padding-top:10px}
+
+.day-card{border-bottom:.5px solid var(--border);cursor:pointer;transition:background .12s;position:relative}
+.day-card:hover{background:#F0EAE0}
+.day-card.active{background:#F5EFE5}
+.day-card.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0 2px 2px 0}
+
+.day-header{display:flex;align-items:flex-start;gap:10px;padding:10px 14px 9px}
+.day-badge{min-width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0;margin-top:1px;color:white}
+.day-title-block{flex:1;min-width:0}
+.day-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day-date{font-size:10px;color:var(--ink3);margin-top:1px}
+.day-sleep{font-size:10px;color:var(--ink2);margin-top:3px}
+
+.tags-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;margin-left:-7px}
+.tag{font-size:10px;padding:2px 7px;border-radius:10px}
+.tag-city{background:#F8EBD8;color:#8B4A14}
+.tag-wind{background:#DCEAF8;color:#1A5A9A}
+.tag-relax{background:#D8EEE0;color:#1E6B48}
+
+.transfer-inline{display:flex;align-items:center;gap:5px;margin-top:4px;background:#EDE8DC;border-radius:5px;padding:4px 8px;font-size:10px;color:var(--ink2)}
+.ti-route{font-weight:500;color:var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ti-pill{background:white;border-radius:8px;padding:1px 6px;font-size:10px;white-space:nowrap;flex-shrink:0}
+
+.day-body{overflow:hidden;max-height:0;transition:max-height .28s ease;background:#F8F3EB}
+.day-body.open{max-height:380px;border-top:.5px solid var(--border)}
+.body-inner{padding:10px 14px 12px}
+
+.road-strip{display:flex;align-items:center;gap:8px;background:#EDE8DC;border-radius:6px;padding:6px 10px;margin-bottom:9px;font-size:11px;color:var(--ink2)}
+.road-strip strong{color:var(--ink);font-weight:500}
+.ferry-strip{display:flex;align-items:center;gap:8px;background:#EEE0FA;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:11px;color:#4A1A7A;border:.5px solid #C8A0E8}
+.ferry-strip strong{color:#3A0A6A;font-weight:500}
+.warn-box{background:#FFF8E8;border:.5px solid #E8C84A;border-radius:6px;padding:7px 10px;margin-bottom:9px;font-size:11px;color:#7A5A0A;line-height:1.5}
+.tag-morocco{background:#EEE0FA;color:#5A1A8A}
+.act-item.ma .act-dot{background:#7B35A8}
+
+.act-label{font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
+.act-item{display:flex;align-items:flex-start;gap:7px;margin-bottom:4px;font-size:11px;color:var(--ink2);line-height:1.4}
+.act-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:4px;background:var(--ink3)}
+.act-item.hl .act-dot{background:#C8401A}
+.act-item.wn .act-dot{background:#1A6CB8}
+.act-item.gr .act-dot{background:#2E8B5C}
+
+#map{flex:1;z-index:1}
+
+.marker-wrap{display:flex;flex-direction:column;align-items:center}
+.marker-circle{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;color:white;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.marker-stem{width:2px;height:8px;opacity:.7}
+
+.map-popup{font-family:'DM Sans',sans-serif;padding:10px 14px;min-width:155px}
+.map-popup strong{font-size:13px;font-weight:500;display:block;margin-bottom:2px}
+.map-popup span{font-size:11px;color:var(--ink3);display:block}
+.map-popup .pop-acc{font-size:11px;font-weight:500;margin-top:4px}
+
+.leaflet-popup-content-wrapper{border-radius:10px!important;box-shadow:0 4px 20px rgba(0,0,0,.13)!important;border:1px solid var(--border)!important;padding:0!important;background:var(--panel)!important}
+.leaflet-popup-content{margin:0!important}
+.leaflet-popup-tip{background:var(--panel)!important}
+.leaflet-popup-close-button{display:none!important}
+
+.summary-bar{display:flex;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0}
+.summary-item{flex:1;text-align:center;padding:7px 0;border-right:1px solid var(--border)}
+.summary-item:last-child{border-right:none}
+.summary-val{font-size:14px;font-weight:500;font-family:'DM Serif Display',serif;color:var(--ink)}
+.summary-lbl{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="toggle-btn active" id="sidebar-toggle" onclick="toggleSidebar()">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <rect x="1" y="1" width="14" height="14" rx="2"/><line x1="5.5" y1="1" x2="5.5" y2="15"/>
+      </svg>
+      <span id="toggle-label">Itinerario</span>
+    </button>
+    <div class="header-left">
+      <h1>Andalusia · Costa Atlantica + Tangeri 🇲🇦</h1>
+      <p>30 marzo – 12 aprile 2026 &nbsp;·&nbsp; 14 notti &nbsp;·&nbsp; Siviglia → Costa → Tarifa → Marocco → Siviglia</p>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#C8401A"></div>Siviglia</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#9B6A1A"></div>Costa nord</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1A6CB8"></div>Cádiz · Tarifa</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2E7D5A"></div>Vejer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8B4A14"></div>Gita</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7B35A8"></div>Tangeri</div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-top">Programma giorno per giorno</div>
+    <div id="days-list"></div>
+  </div>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <div id="map"></div>
+</div>
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-val">15</div><div class="summary-lbl">Giorni</div></div>
+  <div class="summary-item"><div class="summary-val">~680 km</div><div class="summary-lbl">Con auto</div></div>
+  <div class="summary-item"><div class="summary-val">5</div><div class="summary-lbl">Notti Tarifa</div></div>
+  <div class="summary-item"><div class="summary-val">3 gite</div><div class="summary-lbl">Gib · Tangeri · Bolonia</div></div>
+  <div class="summary-item"><div class="summary-val">SVQ↺</div><div class="summary-lbl">Circolare</div></div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const phases = [
+  {
+    label: "Arrivo · due notti a Siviglia",
+    days: [
+      { id:1, date:"Lun 30 mar", color:"#C8401A", wind:false,
+        title:"Arrivo a Siviglia",
+        sleep:"Siviglia", sleepCoord:[37.3891,-5.9845],
+        transfer:null,
+        tags:["🏛 città"],
+        acts:[
+          {t:"Arrivo aeroporto SVQ — ritiro auto (si usa dal giorno 3)",d:"no"},
+          {t:"Check-in nel centro storico — Barrio Santa Cruz o Triana",d:"no"},
+          {t:"Primo paseo: Torre del Oro e riva del Guadalquivir",d:"gr"},
+          {t:"Cena a Triana: tapas di torrijas e pescaíto frito",d:"hl"},
+        ]},
+      { id:2, date:"Mar 31 mar", color:"#C8401A", wind:false,
+        title:"Siviglia — Alcázar e flamenco",
+        sleep:"Siviglia", sleepCoord:[37.3891,-5.9845],
+        transfer:null,
+        tags:["🏛 città"],
+        acts:[
+          {t:"Real Alcázar — giardini in fiore (prenotare online!)",d:"hl"},
+          {t:"Catedral de Sevilla + Giralda",d:"hl"},
+          {t:"Barrio Santa Cruz — vicoli e azulejos",d:"no"},
+          {t:"Sera: tablao flamenco autentico (Casa de la Memoria — prenotare)",d:"hl"},
+        ]},
+    ]
+  },
+  {
+    label: "Tour Costa Atlantica · con auto",
+    days: [
+      { id:3, date:"Mer 1 apr", color:"#9B6A1A", wind:false,
+        title:"Siviglia → Jerez → El Puerto",
+        sleep:"El Puerto de Santa María", sleepCoord:[36.5936,-6.2332],
+        transfer:{from:"Siviglia",to:"El Puerto de Santa María",km:95,time:"1h 10min",road:"A-4 → AP-4 via Jerez"},
+        tags:["🏛 città","🌊 mare"],
+        acts:[
+          {t:"Sosta a Jerez: visita bodega González Byass o Tío Pepe",d:"hl"},
+          {t:"Pranzo a Jerez: tapas di carne en salsa e chicharrones",d:"no"},
+          {t:"Arrivo El Puerto: Castillo San Marcos e porto peschereccio",d:"no"},
+          {t:"Cena sul porto: ostras e langostinos appena pescati",d:"hl"},
+        ]},
+      { id:4, date:"Gio 2 apr", color:"#9B6A1A", wind:false,
+        title:"El Puerto — bodega e spiaggia",
+        sleep:"El Puerto de Santa María", sleepCoord:[36.5936,-6.2332],
+        transfer:null,
+        tags:["🌊 mare","🏛 città"],
+        acts:[
+          {t:"Visita bodega Osborne — sherry e brandy storici",d:"hl"},
+          {t:"Spiaggia La Puntilla: spiaggia urbana calma sull'Atlantico",d:"gr"},
+          {t:"Traghetto A/R per Cádiz (35 min): anteprima della città",d:"hl"},
+          {t:"Rientro a El Puerto per cena al porto",d:"no"},
+        ]},
+      { id:5, date:"Ven 3 apr", color:"#1A6CB8", wind:false,
+        title:"El Puerto → Cádiz",
+        sleep:"Cádiz", sleepCoord:[36.5271,-6.2886],
+        transfer:{from:"El Puerto de Santa María",to:"Cádiz",km:15,time:"20 min",road:"A-491"},
+        tags:["🏛 città","🌊 mare"],
+        acts:[
+          {t:"Casco Antiguo di Cádiz — la città più antica d'Europa",d:"hl"},
+          {t:"Cattedrale barocca: salita al campanile per la vista a 360°",d:"hl"},
+          {t:"Mercado Central de Abastos — tapas tra i locali",d:"no"},
+          {t:"Spiaggia La Caleta al tramonto — tra due castelli sul mare",d:"gr"},
+        ]},
+      { id:6, date:"Sab 4 apr", color:"#1A6CB8", wind:false,
+        title:"Cádiz — spiagge e relax",
+        sleep:"Cádiz", sleepCoord:[36.5271,-6.2886],
+        transfer:null,
+        tags:["🌊 mare"],
+        acts:[
+          {t:"Spiaggia Victoria: sabbia bianca finissima, acque calme",d:"gr"},
+          {t:"Quartiere La Viña — flamenco spontaneo e tapas locali",d:"hl"},
+          {t:"Paseo marítimo al tramonto sull'Atlantico aperto",d:"gr"},
+          {t:"Cena: fritura gaditana — il meglio del pesce fritto andaluso",d:"hl"},
+        ]},
+      { id:7, date:"Dom 5 apr", color:"#2E7D5A", wind:false,
+        title:"Cádiz → Vejer → Bolonia",
+        sleep:"Vejer de la Frontera", sleepCoord:[36.2523,-5.7788],
+        transfer:{from:"Cádiz",to:"Vejer de la Frontera",km:65,time:"50 min",road:"A-48"},
+        tags:["🌊 mare","🏛 città"],
+        acts:[
+          {t:"Vejer de la Frontera: pueblo bianco medievale su collina",d:"hl"},
+          {t:"Pranzo nel centro storico di Vejer: jamonería locale",d:"no"},
+          {t:"Spiaggia di Bolonia (20 min): dune bianche + Baelo Claudia",d:"hl"},
+          {t:"Bagno atlantico e cena a Vejer — El Jardín del Califa",d:"gr"},
+        ]},
+      { id:8, date:"Lun 6 apr", color:"#1A6CB8", wind:true,
+        title:"Vejer → Zahara → Tarifa",
+        sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+        transfer:{from:"Vejer de la Frontera",to:"Tarifa",km:45,time:"45 min",road:"A-48 → N-340"},
+        tags:["🌊 mare","💨 windsurf"],
+        acts:[
+          {t:"Sosta a Zahara de los Atunes: borgo di pescatori autentico",d:"hl"},
+          {t:"Arrivo Tarifa: casco histórico medievale",d:"no"},
+          {t:"Sopralluogo spiagge: Los Lances e Valdevaqueros",d:"gr"},
+          {t:"Tramonto sullo Stretto: luci del Marocco a 14 km",d:"gr"},
+        ]},
+      { id:9, date:"Mar 7 apr", color:"#1A6CB8", wind:true,
+        title:"Tarifa — whale watching e mare",
+        sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+        transfer:null,
+        tags:["🌊 mare","💨 windsurf"],
+        acts:[
+          {t:"Whale watching mattina: balene e delfini nello Stretto",d:"hl"},
+          {t:"Spiaggia Los Lances — chilometri di sabbia bianca",d:"gr"},
+          {t:"Windsurf opzionale: Tarifa Spin Out o ION Club",d:"wn"},
+          {t:"Cena nel centro storico: pescado frito e coquinas",d:"hl"},
+        ]},
+      { id:10, date:"Mer 8 apr", color:"#8B4A14", wind:false,
+        title:"Tarifa — gita a Gibilterra",
+        sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+        transfer:{from:"Tarifa",to:"Gibilterra (gita A/R)",km:30,time:"30 min",road:"N-340 → La Línea"},
+        tags:["🏛 città"],
+        acts:[
+          {t:"Parcheggio a La Línea (ES) — visita Gibilterra a piedi",d:"no"},
+          {t:"Funivia Rock of Gibraltar: vista su due continenti",d:"hl"},
+          {t:"Macachi barbareschi liberi sul promontorio",d:"hl"},
+          {t:"Rientro Tarifa — spiaggia Punta Paloma nel pomeriggio",d:"gr"},
+        ]},
+      { id:11, date:"Gio 9 apr", color:"#7B35A8", wind:false,
+        title:"Tarifa — gita a Tangeri 🇲🇦",
+        sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+        transfer:{from:"Tarifa",to:"Tangeri (traghetto A/R)",km:35,time:"~1h traversata",road:"Balearia o AML · porto di Tarifa",ferry:true},
+        tags:["🕌 Marocco"],
+        warn:"⚠ Porta il PASSAPORTO (con sola CI il traghetto di ritorno è vincolato alle 13:00). Arriva al porto 1h prima. Prenota in anticipo su directferries.it o con tour guidato su GetYourGuide (~85 €/pers A/R + tour).",
+        acts:[
+          {t:"Partenza traghetto ore 8:00 — arrivare al porto con 1h di anticipo",d:"ma"},
+          {t:"Traversata ~58 min: la costa africana si avvicina",d:"ma"},
+          {t:"Medina e Grand Socco: souk di spezie, tessuti, ceramiche",d:"ma"},
+          {t:"Kasbah con vista sullo Stretto — vicoli bianchi e palazzi",d:"ma"},
+          {t:"Cap Spartel: il punto più nord-occidentale dell'Africa",d:"hl"},
+          {t:"Grotte di Ercole — grotte costiere mitologiche",d:"hl"},
+          {t:"Pranzo tradizionale: tajine e mint tea",d:"hl"},
+          {t:"Rientro traghetto: consigliato ore 18–19",d:"ma"},
+        ]},
+      { id:12, date:"Ven 10 apr", color:"#1A6CB8", wind:true,
+        title:"Tarifa — ultima giornata libera",
+        sleep:"Tarifa", sleepCoord:[36.0143,-5.6044],
+        transfer:null,
+        tags:["🌊 mare","💨 windsurf"],
+        acts:[
+          {t:"Giornata libera — scegli la spiaggia del giorno",d:"gr"},
+          {t:"Punta Paloma: caletta riparata con dune e pini",d:"gr"},
+          {t:"Windsurf opzionale: sessione a Valdevaqueros",d:"wn"},
+          {t:"Aperitivo con vista sul Marocco e cena d'addio a Tarifa",d:"hl"},
+        ]},
+    ]
+  },
+  {
+    label: "Rientro · riconsegna auto · Siviglia a piedi",
+    days: [
+      { id:13, date:"Sab 11 apr", color:"#9B6A1A", wind:false,
+        title:"Tarifa → Sanlúcar → Siviglia (riconsegna auto)",
+        sleep:"Siviglia", sleepCoord:[37.3891,-5.9845],
+        transfer:{from:"Tarifa",to:"Siviglia",km:200,time:"2h 15min",road:"A-48 + A-4 · tappa Sanlúcar"},
+        tags:["🏛 città"],
+        acts:[
+          {t:"Tappa a Sanlúcar de Barrameda: manzanilla e gambas (~1h)",d:"hl"},
+          {t:"Arrivo Siviglia — riconsegna auto in agenzia",d:"no"},
+          {t:"Da qui solo a piedi: niente parcheggio, niente stress",d:"no"},
+          {t:"Sera: primo aperitivo nell'Alameda de Hércules",d:"gr"},
+        ]},
+      { id:14, date:"Dom 12 apr", color:"#C8401A", wind:false,
+        title:"Siviglia — Metropol, Triana e Plaza de España",
+        sleep:"Siviglia", sleepCoord:[37.3891,-5.9845],
+        transfer:null,
+        tags:["🏛 città"],
+        acts:[
+          {t:"Metropol Parasol (Setas) — vista panoramica mattutina",d:"no"},
+          {t:"Casa de Pilatos — palazzo mudéjar poco affollato",d:"hl"},
+          {t:"Barrio de Triana: ceramiche, tapas e vita locale",d:"no"},
+          {t:"Plaza de España e Parco di María Luisa al tramonto",d:"gr"},
+        ]},
+      { id:15, date:"Lun 13 apr", color:"#9C9480", wind:false,
+        title:"Siviglia — mattina e volo di rientro",
+        sleep:null, sleepCoord:null,
+        transfer:{from:"Siviglia centro",to:"Aeroporto SVQ",km:12,time:"20 min",road:"Taxi/bus · SE-30"},
+        tags:["🏛 città"],
+        acts:[
+          {t:"Colazione: churros con chocolate al Bar El Comercio",d:"hl"},
+          {t:"Passeggiata finale lungo il Guadalquivir",d:"gr"},
+          {t:"Taxi o bus navetta per l'aeroporto SVQ",d:"no"},
+          {t:"Volo di rientro",d:"no"},
+        ]},
+    ]
+  }
+];
+
+// ── MAP ───────────────────────────────────────────────────────────────────────
+const map = L.map('map',{center:[36.7,-5.4],zoom:7,zoomControl:true});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+const stopCoords = {
+  "Siviglia":               [37.3891,-5.9845],
+  "El Puerto de Santa María":[36.5936,-6.2332],
+  "Cádiz":                  [36.5271,-6.2886],
+  "Vejer de la Frontera":   [36.2523,-5.7788],
+  "Tarifa":                 [36.0143,-5.6044],
+  "Gibilterra":             [36.1441,-5.3417],
+  "Tangeri":                [35.7595,-5.8330],
+};
+
+const stopColors = {
+  "Siviglia":"#C8401A",
+  "El Puerto de Santa María":"#9B6A1A",
+  "Cádiz":"#1A6CB8",
+  "Vejer de la Frontera":"#2E7D5A",
+  "Tarifa":"#1A6CB8",
+  "Gibilterra":"#8B4A14",
+  "Tangeri":"#7B35A8",
+};
+
+const stopNights = {
+  "Siviglia":4,"El Puerto de Santa María":2,"Cádiz":2,
+  "Vejer de la Frontera":1,"Tarifa":5,"Gibilterra":0,"Tangeri":0,
+};
+
+const stopDesc = {
+  "Siviglia":"2 notti arrivo + 2 rientro",
+  "El Puerto de Santa María":"2 notti",
+  "Cádiz":"2 notti",
+  "Vejer de la Frontera":"1 notte",
+  "Tarifa":"5 notti · windsurf",
+  "Gibilterra":"gita di giornata (giorno 10)",
+  "Tangeri":"gita di giornata 🇲🇦 (giorno 11) · traghetto da Tarifa ~1h",
+};
+
+const markers = {};
+Object.entries(stopCoords).forEach(([name,coord])=>{
+  const color = stopColors[name];
+  const isGib = name==="Gibilterra";
+  const size = isGib?26:36;
+  const nights = stopNights[name];
+  const label = isGib
+    ?'<span style="font-size:9px">gita</span>'
+    :`<span style="font-size:14px;font-weight:700;line-height:1">${nights}</span><span style="font-size:8px;margin-left:1px;opacity:.85">N</span>`;
+
+  const iconHtml=`
+    <div class="marker-wrap">
+      <div class="marker-circle" style="background:${color};width:${size}px;height:${size}px;gap:0">${label}</div>
+      <div class="marker-stem" style="background:${color}"></div>
+    </div>`;
+
+  const icon=L.divIcon({html:iconHtml,className:'',iconSize:[size,size+10],iconAnchor:[size/2,size+10],popupAnchor:[0,-(size+10)]});
+  const m=L.marker(coord,{icon}).addTo(map);
+  m.bindPopup(`<div class="map-popup"><strong>${name}</strong><span>${stopDesc[name]}</span></div>`,{closeButton:false});
+  m.on('click',()=>{
+    const allDays=phases.flatMap(p=>p.days);
+    const match=allDays.find(d=>d.sleep===name);
+    if(match) selectDay(match.id);
+  });
+  markers[name]=m;
+});
+
+// ── ROUTES ───────────────────────────────────────────────────────────────────
+const routeSegments=[
+  {key:"siv-elp",  from:"Siviglia",               to:"El Puerto de Santa María",dayId:3, gib:false, ferry:false},
+  {key:"elp-cad",  from:"El Puerto de Santa María",to:"Cádiz",                  dayId:5, gib:false, ferry:false},
+  {key:"cad-vej",  from:"Cádiz",                  to:"Vejer de la Frontera",    dayId:7, gib:false, ferry:false},
+  {key:"vej-tar",  from:"Vejer de la Frontera",   to:"Tarifa",                  dayId:8, gib:false, ferry:false},
+  {key:"tar-gib",  from:"Tarifa",                 to:"Gibilterra",              dayId:10,gib:true,  ferry:false},
+  {key:"tar-tan",  from:"Tarifa",                 to:"Tangeri",                 dayId:11,gib:false, ferry:true},
+  {key:"tar-siv",  from:"Tarifa",                 to:"Siviglia",                dayId:13,gib:false, ferry:false},
+];
+
+const routeLayers={};
+
+function baseStyle(seg){
+  if(seg.ferry) return{color:'#C4A0E0',weight:2,opacity:.55,dashArray:'6 5',lineJoin:'round',lineCap:'round'};
+  if(seg.gib)   return{color:'#A07858',weight:2,opacity:.45,dashArray:'5 5',lineJoin:'round',lineCap:'round'};
+  return{color:'#9B6A1A',weight:3,opacity:.5,lineJoin:'round',lineCap:'round'};
+}
+function activeStyle(seg){
+  if(seg.ferry) return{color:'#7B35A8',weight:4,opacity:.9,dashArray:'7 5',lineJoin:'round',lineCap:'round'};
+  if(seg.gib)   return{color:'#8B4A14',weight:3,opacity:.9,dashArray:'6 4',lineJoin:'round',lineCap:'round'};
+  return{color:'#C8401A',weight:5,opacity:.9,lineJoin:'round',lineCap:'round'};
+}
+
+async function fetchRoute(from,to){
+  try{
+    const url=`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+    const r=await fetch(url);
+    const d=await r.json();
+    if(d.routes&&d.routes[0]) return d.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+  }catch(e){}
+  return[stopCoords[Object.keys(stopCoords).find(k=>stopCoords[k]===from)],to];
+}
+
+async function drawRoutes(){
+  for(const seg of routeSegments){
+    const from=stopCoords[seg.from],to=stopCoords[seg.to];
+    if(!from||!to) continue;
+    const coords=seg.ferry?[from,to]:await fetchRoute(from,to);
+    const line=L.polyline(coords,baseStyle(seg)).addTo(map);
+    routeLayers[seg.key]={line,seg};
+  }
+}
+
+function highlightSegment(dayId){
+  const match=routeSegments.find(s=>s.dayId===dayId);
+  Object.values(routeLayers).forEach(({line,seg})=>{
+    if(match&&seg.key===match.key){line.setStyle(activeStyle(seg));line.bringToFront();}
+    else line.setStyle(baseStyle(seg));
+  });
+}
+function resetSegments(){
+  Object.values(routeLayers).forEach(({line,seg})=>line.setStyle(baseStyle(seg)));
+}
+drawRoutes();
+
+// ── SIDEBAR ───────────────────────────────────────────────────────────────────
+let activeDay=null;
+const allDays=phases.flatMap(p=>p.days);
+
+function buildSidebar(){
+  const container=document.getElementById('days-list');
+  phases.forEach(phase=>{
+    const sep=document.createElement('div');
+    sep.className='phase-sep';
+    sep.textContent=phase.label;
+    container.appendChild(sep);
+
+    phase.days.forEach(day=>{
+      const card=document.createElement('div');
+      card.className=`day-card${day.wind?' wind-day':''}`;
+      card.id=`day-card-${day.id}`;
+
+      const tagsHtml=day.tags
+        .filter(t=>!t.includes('transfer')&&!t.includes('gita'))
+        .map(t=>{
+          let cls='tag-city';
+          if(t.includes('windsurf')) cls='tag-wind';
+          else if(t.includes('mare')) cls='tag-relax';
+          else if(t.includes('Marocco')||t.includes('Tangeri')) cls='tag-morocco';
+          return`<span class="tag ${cls}">${t}</span>`;
+        }).join('');
+
+      const isFerry=day.transfer&&day.transfer.ferry;
+      const trHtml=day.transfer?`
+        <div class="transfer-inline" style="${isFerry?'background:#EEE0FA;':''}">
+          <span>${isFerry?'⛴':'🚗'}</span>
+          <span class="ti-route" style="${isFerry?'color:#4A1A7A;':''}">${day.transfer.from} → ${day.transfer.to}</span>
+          <span class="ti-pill">${day.transfer.km} km · ${day.transfer.time}</span>
+        </div>`:'';
+
+      const roadHtml=day.transfer?(isFerry?`
+        <div class="ferry-strip">
+          <span>⛴</span>
+          <span>Traghetto: <strong>${day.transfer.road}</strong> · ~85 €/persona A/R</span>
+        </div>`:`
+        <div class="road-strip">
+          <span>🛣</span>
+          <span>Strada: <strong>${day.transfer.road}</strong></span>
+        </div>`):'';
+
+      const warnHtml=day.warn?`<div class="warn-box">${day.warn}</div>`:'';
+
+      const sleepHtml=day.sleep
+        ?`<div class="day-sleep">🛏&nbsp; ${day.sleep}</div>`
+        :`<div class="day-sleep" style="color:var(--ink3)">✈️&nbsp; Volo di rientro</div>`;
+
+      const actsHtml=day.acts.map(a=>{
+        const cls=a.d==='hl'?'hl':a.d==='wn'?'wn':a.d==='gr'?'gr':a.d==='ma'?'ma':'';
+        return`<div class="act-item ${cls}"><div class="act-dot"></div><span>${a.t}</span></div>`;
+      }).join('');
+
+      card.innerHTML=`
+        <div class="day-header">
+          <div class="day-badge" style="background:${day.color}">${day.id}</div>
+          <div class="day-title-block">
+            <div class="day-title">${day.title}</div>
+            <div class="day-date">${day.date}</div>
+            ${tagsHtml?`<div class="tags-row">${tagsHtml}</div>`:''}
+            ${trHtml}
+            ${sleepHtml}
+          </div>
+        </div>
+        <div class="day-body" id="day-body-${day.id}">
+          <div class="body-inner">
+            ${roadHtml}
+            ${warnHtml}
+            <div class="act-label">Attività del giorno</div>
+            ${actsHtml}
+          </div>
+        </div>`;
+
+      // accent color per card attiva
+      const style=document.createElement('style');
+      style.textContent=`#day-card-${day.id}.active::before{background:${day.color}}`;
+      document.head.appendChild(style);
+
+      card.addEventListener('click',()=>selectDay(day.id));
+      container.appendChild(card);
+    });
+  });
+}
+
+function selectDay(id){
+  const day=allDays.find(d=>d.id===id);
+  if(!day) return;
+
+  if(activeDay&&activeDay!==id){
+    document.getElementById(`day-card-${activeDay}`)?.classList.remove('active');
+    document.getElementById(`day-body-${activeDay}`)?.classList.remove('open');
+  }
+  if(activeDay===id){
+    document.getElementById(`day-card-${id}`)?.classList.remove('active');
+    document.getElementById(`day-body-${id}`)?.classList.remove('open');
+    resetSegments();activeDay=null;return;
+  }
+
+  document.getElementById(`day-card-${id}`)?.classList.add('active');
+  document.getElementById(`day-body-${id}`)?.classList.add('open');
+  document.getElementById(`day-card-${id}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  if(day.transfer) highlightSegment(id); else resetSegments();
+
+  if(day.sleepCoord){
+    map.flyTo(day.sleepCoord,10,{duration:.9,easeLinearity:.3});
+    const stopName=Object.keys(stopCoords).find(k=>{
+      const c=stopCoords[k];
+      return Math.abs(c[0]-day.sleepCoord[0])<.01&&Math.abs(c[1]-day.sleepCoord[1])<.01;
+    });
+    if(stopName&&markers[stopName]) markers[stopName].openPopup();
+    if(id===10&&markers["Gibilterra"]) setTimeout(()=>markers["Gibilterra"].openPopup(),900);
+    if(id===11) setTimeout(()=>{
+      map.flyTo([36.38,-5.5],8,{duration:1.2,easeLinearity:.3});
+      setTimeout(()=>markers["Tangeri"]?.openPopup(),1200);
+    },400);
+  }
+  activeDay=id;
+}
+
+// ── TOGGLE ────────────────────────────────────────────────────────────────────
+function isMobile(){return window.innerWidth<=600}
+function updateToggleBtn(v){
+  document.getElementById('sidebar-toggle')?.classList.toggle('active',v);
+  const l=document.getElementById('toggle-label');
+  if(l) l.textContent=v?'Chiudi':'Itinerario';
+}
+function closeSidebar(){
+  const s=document.getElementById('sidebar'),o=document.getElementById('sidebar-overlay');
+  if(isMobile()){s.classList.remove('open');o.classList.remove('visible');}
+  else s.classList.add('collapsed');
+  updateToggleBtn(false);
+  setTimeout(()=>map.invalidateSize(),280);
+}
+function toggleSidebar(){
+  const s=document.getElementById('sidebar'),o=document.getElementById('sidebar-overlay');
+  if(isMobile()){
+    const open=s.classList.contains('open');
+    s.classList.toggle('open',!open);o.classList.toggle('visible',!open);
+    updateToggleBtn(!open);
+    if(!open) setTimeout(()=>map.invalidateSize(),280);
+  }else{
+    const col=s.classList.contains('collapsed');
+    s.classList.toggle('collapsed',!col);
+    updateToggleBtn(col);
+    setTimeout(()=>map.invalidateSize(),280);
+  }
+}
+
+buildSidebar();
+selectDay(1);
+if(!isMobile()) updateToggleBtn(true); else updateToggleBtn(false);
+</script>
+</body>
+</html>
