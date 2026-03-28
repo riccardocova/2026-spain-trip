@@ -77,8 +77,9 @@ header p { font-size: 11px; color: var(--ink3); margin-top: 2px; }
 .toggle-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 .sidebar-overlay {
-  display: none; position: absolute; inset: 0;
-  background: rgba(0,0,0,.35); z-index: 10;
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.4); z-index: 10;
 }
 .sidebar-overlay.visible { display: block; }
 
@@ -88,19 +89,24 @@ header p { font-size: 11px; color: var(--ink3); margin-top: 2px; }
   .legend-panel.collapsed { width: 0; opacity: 0; overflow: hidden; padding: 0; border-right: none; pointer-events: none; }
 }
 
-/* Mobile: hidden by default, slides over map */
+/* Mobile: slides in from left as fixed overlay */
 @media (max-width: 600px) {
-  .main { position: relative; }
   .legend-panel {
-    position: absolute; top: 0; left: 0; bottom: 0;
-    width: 0; opacity: 0; overflow: hidden; padding: 0;
-    border-right: none; pointer-events: none; z-index: 20;
-    transition: width .25s ease, opacity .2s ease;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: min(290px, 88vw);
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 14px 16px;
+    z-index: 20;
+    transform: translateX(-100%);
+    transition: transform .28s ease;
+    pointer-events: none;
   }
   .legend-panel.open {
-    width: min(290px, 88vw); opacity: 1;
-    overflow-y: auto; padding: 14px 16px;
-    border-right: 1px solid var(--border); pointer-events: auto;
+    transform: translateX(0);
+    pointer-events: auto;
   }
   header h1 { font-size: 14px; }
   header p { font-size: 10px; }
@@ -352,10 +358,15 @@ function togglePanel() {
   const overlay = document.getElementById('overlay');
   if (isMobile()) {
     const isOpen = panel.classList.contains('open');
-    panel.classList.toggle('open', !isOpen);
-    overlay.classList.toggle('visible', !isOpen);
-    updateBtn(!isOpen);
-    if (!isOpen) setTimeout(() => map.invalidateSize(), 280);
+    if (isOpen) {
+      panel.classList.remove('open');
+      overlay.classList.remove('visible');
+      updateBtn(false);
+    } else {
+      panel.classList.add('open');
+      overlay.classList.add('visible');
+      updateBtn(true);
+    }
   } else {
     const isCollapsed = panel.classList.contains('collapsed');
     panel.classList.toggle('collapsed', !isCollapsed);
@@ -367,12 +378,8 @@ function togglePanel() {
 // Open Triana popup on load
 setTimeout(() => { map.flyTo([37.391, -5.997], 14); }, 300);
 
-// On desktop start visible; on mobile start hidden
-if (!isMobile()) {
-  updateBtn(true);
-} else {
-  updateBtn(false);
-}
+// Desktop starts with panel visible; mobile hidden
+updateBtn(!isMobile());
 </script>
 </body>
 </html>
